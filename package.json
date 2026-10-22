@@ -1,0 +1,32 @@
+{
+  "name": "baseerah",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Baseerah – web accessibility scanning platform for web developers (SWE 444, Sprint 1).",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "test": "npm run test -w server && npm run test -w client",
+    "test:server": "npm run test -w server",
+    "test:client": "npm run test -w client",
+    "test:e2e": "playwright test -c e2e/playwright.config.js",
+    "test:all": "npm test && npm run test:e2e",
+    "fixtures": "node server/test/fixtures/serve.js"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "concurrently": "10.0.6"
+  }
+}

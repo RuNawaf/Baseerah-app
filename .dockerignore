@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+client
+!client/package.json
+e2e
+server/test
+test-results
+playwright-report
+.env
+.git

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fixture Bakery – Home</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    .faint { color: #bbbbbb; background: #ffffff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Fixture Bakery</h1>
+    <nav aria-label="Main">
+      <a href="about.html">About</a>
+      <a href="./about.html">About (duplicate link)</a>
+      <a href="/about.html#team">Our team (fragment link)</a>
+      <a href="/about.html?b=2&amp;a=1">About with query</a>
+      <a href="/about.html?a=1&amp;b=2">About with the same query in another order</a>
+      <a href="contact/">Contact</a>
+      <a href="deep/1.html">Recipes</a>
+      <a href="redirect-me">Old about page (redirects)</a>
+      <a href="missing.html">Broken link</a>
+    </nav>
+  </header>
+  <main>
+    <!-- Issue: image without alternative text -->
+    <img src="img/logo.png" width="64" height="64">
+    <!-- Issue: low contrast text -->
+    <p class="faint">Fresh bread every morning.</p>
+    <ul>
+      <li><a href="files/menu.pdf">Menu (PDF)</a></li>
+      <li><a href="img/logo.png">Logo image</a></li>
+      <li><a href="files/data.json">Data file</a></li>
+      <li><a href="files/app.js">Script</a></li>
+      <li><a href="files/style.css">Stylesheet</a></li>
+      <li><a href="files/promo.mp4">Video</a></li>
+      <li><a href="files/brochure.html" download>Download brochure</a></li>
+      <li><a href="mailto:hello@fixture.test">Email us</a></li>
+      <li><a href="tel:+966500000000">Call us</a></li>
+      <li><a href="javascript:void(0)">Do nothing</a></li>
+      <li><a href="ftp://fixture.test/file">FTP file</a></li>
+      <li><a href="{{EXTERNAL_ORIGIN}}/">Partner website (external)</a></li>
+      <li><a href="#top">Back to top (fragment only)</a></li>
+    </ul>
+  </main>
+</body>
+</html>
