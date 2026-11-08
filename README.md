@@ -6,7 +6,7 @@ on each page, and shows the results page by page.
 
 **SWE 444 Software Construction Laboratory, King Saud University. Team Inclusive Minds, Section 94390.**
 
-This repository contains the working software for **Sprint 1** (US-01 to US-06).
+This repository contains the working software for **Sprint 1** (US-01 to US-06) and **Sprint 2** (US-07 to US-11).
 
 > **Scope change:** US-04 originally scanned a single webpage. It now scans the **entire website**: every page on the
 > submitted URL's origin that can be reached through links, within the configurable safety limits below.
@@ -114,7 +114,8 @@ server/
     controllers/            request/response handling
     services/               scanService (orchestration, status), scanStore (in-memory, TTL)
     crawler/                queue-based same-origin crawler with visited set and safety limits
-    scanner/                shared Chromium + per-page loading and axe-core analysis
+    scanner/                shared Chromium + per-page loading and axe-core analysis;
+                            findings.js groups results into the key checks, suggestions.js builds suggestions
     validation/             URL parsing/normalization, SSRF and reachability checks
     errors/                 error codes, AppError, JSON error handler
     middleware/             rate limiting
@@ -187,6 +188,15 @@ The URL is validated (format, protocol, SSRF rules, reachability) **before** a s
 impact, help text, WCAG tags, affected element count, and up to 10 elements per rule with selector and HTML.
 The issue count of a page is the number of affected elements.
 
+Since Sprint 2, each violation also has a `category` (`altText`, `contrast`, `label` or `null`), and its elements carry
+extra details for these checks:
+
+- `contrast` (US-09): `{ foreground, background, ratio, required, fontSize, fontWeight }`, as measured by axe-core.
+- `suggestion` (US-08, US-11): `{ text, basis, code }` for images without alternative text and for fields or buttons
+  without an accessible name. `basis` says where the text came from (`link`, `caption`, `title`, `fileName`,
+  `nearbyText`, `placeholder`, `autocomplete`, `inputType`, `fieldName`, `icon`, `buttonType`), and `text` is `null`
+  when nothing on the page describes the element.
+
 Scan statuses:
 
 - `completed`: every page scanned.
@@ -218,6 +228,25 @@ Scan statuses:
   on the server and returned to clients only as a generic `INTERNAL_ERROR`.
 - No secrets are needed for Sprint 1. `.env` is git-ignored.
 
+## Key checks and suggestions (Sprint 2)
+
+The report has a **Key checks** panel with three checks across the whole website, and each affected element shows its
+details when you open a page:
+
+| Check | axe-core rules | What the report shows |
+| --- | --- | --- |
+| Images without alternative text (US-07) | `image-alt`, `input-image-alt`, `area-alt`, `role-img-alt`, `svg-img-alt`, `object-alt` | A suggested alternative text and the image's code with it (US-08) |
+| Text with low contrast (US-09) | `color-contrast`, `color-contrast-enhanced` | Text colour, background colour, the measured ratio and the required ratio |
+| Fields and buttons without a label (US-10) | `label`, `button-name`, `input-button-name`, `select-name`, `aria-input-field-name`, `aria-toggle-field-name` | A suggested label (fields) or accessible name (icon buttons), with code (US-11) |
+
+Decorative images (`alt=""`), images with alternative text, labelled fields and readable text are not reported.
+
+Suggestions are rule-based, so they run on any server without an external service. After axe-core runs, the
+scanner reads what the page already says about each element: the link around an image, a figure caption, the
+`title` attribute, the file name, the text next to a field, its placeholder, `autocomplete` value, type or name, and
+icon class names. It never changes the page. When nothing describes an element, the report says so and asks the
+developer to write the text.
+
 ## Tests
 
 The tests do not depend on public websites. The fixture site in `server/test/fixtures/` has linked internal pages,
@@ -233,6 +262,9 @@ non-HTML files, `mailto:`/`tel:`/`javascript:` links, a form, and known accessib
 | US-05 loading state, progress, completion notice, View report, report contents, no scoring | `client/test/App.test.jsx` (US-04 / US-05), `e2e/tests/scan-flow.spec.js` |
 | US-05 completion alert in another tab (system notification, tab title) | `client/test/completionAlert.test.jsx` |
 | US-06 failure reasons, error types, failed pages recorded, no report on full failure, no leaks | `server/test/unit/errors.test.js`, `server/test/crawler/crawler.integration.test.js`, `server/test/api/scans.api.test.js`, `client/test/App.test.jsx` (US-06) |
+| US-07 to US-11 categories, contrast details, alternative-text and label suggestions | `server/test/unit/findings.test.js`, `server/test/unit/suggestions.test.js` |
+| US-07 to US-11 on real pages (decorative and labelled elements not reported, suggestions linked to each element) | `server/test/crawler/crawler.integration.test.js` (fixture page `checks.html`) |
+| US-07 to US-11 in the report (key checks, colours and ratio, suggestions, Arabic) | `client/test/report.test.jsx`, `e2e/tests/scan-flow.spec.js` |
 | NFR-06 Baseerah's own UI has no critical/serious axe issues | `e2e/tests/scan-flow.spec.js` (scan page, error state, report; desktop and mobile) |
 
 CI (`.github/workflows/ci.yml`) runs all suites and the production build on every pull request.
@@ -244,7 +276,7 @@ CI (`.github/workflows/ci.yml`) runs all suites and the production build on ever
   system libraries). Set `NODE_ENV=production` and `CORS_ORIGIN` to the Vercel URL. Free instances sleep when idle,
   so the first scan after a pause is slower.
 
-## Known limitations (Sprint 1)
+## Known limitations
 
 - Scan results live in memory: they disappear on restart and are not shared between server instances.
 - Pages are discovered through links only (no `sitemap.xml`, no `robots.txt` handling yet).
@@ -253,3 +285,5 @@ CI (`.github/workflows/ci.yml`) runs all suites and the production build on ever
   networks as a second layer.
 - axe-core checks WCAG 2.x rules. Mapping them to WCAG 3.0 and the Bronze/Silver/Gold score is planned for a later sprint.
 - Automated checks find only part of all accessibility barriers; manual testing is still needed.
+- Suggestions are written in English and are based on what the page says about an element, so they cannot describe
+  what an image actually shows. A developer should always review them.

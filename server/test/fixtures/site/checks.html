@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Checks – Fixture Bakery</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222222; background: #ffffff; }
+    .faint { color: #999999; }
+  </style>
+</head>
+<body>
+  <!-- Not linked from the site: scanned directly by the Sprint 2 check tests. -->
+  <main>
+    <h1>Checks</h1>
+    <!-- Not issues: a decorative image, an image with alternative text, readable text -->
+    <img src="img/logo.png" alt="" width="16" height="16">
+    <img src="img/logo.png" alt="Fixture Bakery logo" width="64" height="64">
+    <p>Readable text with enough contrast.</p>
+    <!-- Issue: low contrast text -->
+    <p class="faint">Opening hours</p>
+    <!-- Issues: images without alternative text, with different clues for a suggestion -->
+    <a href="/about.html"><img src="img/logo.png" width="32" height="32"></a>
+    <figure>
+      <img src="img/logo.png" width="64" height="64">
+      <figcaption>Our sourdough loaf</figcaption>
+    </figure>
+    <form action="/subscribe" method="post">
+      <!-- Not issues: a field with a label and a field with aria-label -->
+      <label for="full-name">Full name</label>
+      <input id="full-name" name="full-name">
+      <input name="city" aria-label="City">
+      <!-- Issues: fields and a button without accessible names -->
+      Phone: <input type="tel" name="phone">
+      <input name="first_name">
+      <button type="button"><svg class="icon-search" aria-hidden="true" width="16" height="16"></svg></button>
+    </form>
+  </main>
+</body>
+</html>

@@ -103,6 +103,66 @@ describe('website crawl on the fixture site (US-04, US-06)', () => {
   });
 });
 
+describe('Sprint 2 checks on real pages (US-07 to US-11)', () => {
+  let checks;
+  let home;
+  let about;
+  let contact;
+  beforeAll(async () => {
+    const scan = scanner();
+    [checks, home, about, contact] = await Promise.all(
+      ['/checks.html', '/', '/about.html', '/contact/'].map((path) => scan(`${fixtures.siteOrigin}${path}`)),
+    );
+  });
+
+  const nodesOf = (page, ruleId) => page.violations.find((v) => v.id === ruleId)?.nodes ?? [];
+
+  it('reports images without alternative text and skips decorative or described images (US-07)', () => {
+    const images = nodesOf(checks, 'image-alt');
+    expect(images).toHaveLength(2);
+    expect(images.every((node) => !/alt=/.test(node.html))).toBe(true);
+  });
+
+  it('suggests alternative text for each image without changing the page (US-08)', () => {
+    const [linked, captioned] = nodesOf(checks, 'image-alt');
+    expect(linked.suggestion).toMatchObject({ text: 'About', basis: 'link' });
+    expect(captioned.suggestion).toMatchObject({ text: 'Our sourdough loaf', basis: 'caption' });
+    expect(nodesOf(home, 'image-alt')[0].suggestion.text).toBe('Fixture Bakery logo');
+    // The page itself still has no alt text: the suggestion is only shown.
+    expect(nodesOf(home, 'image-alt')[0].html).not.toContain('alt=');
+  });
+
+  it('shows the colours and ratio of low-contrast text, and skips readable text (US-09)', () => {
+    const nodes = nodesOf(checks, 'color-contrast');
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].contrast).toEqual({
+      foreground: '#999999',
+      background: '#ffffff',
+      ratio: 2.84,
+      required: 4.5,
+      fontSize: '12.0pt (16px)',
+      fontWeight: 'normal',
+    });
+    expect(nodesOf(home, 'color-contrast')[0].contrast).toMatchObject({ foreground: '#bbbbbb', ratio: 1.91 });
+  });
+
+  it('reports fields and buttons without accessible names, and skips labelled ones (US-10)', () => {
+    const fields = nodesOf(checks, 'label').map((node) => node.target);
+    expect(fields).toHaveLength(2);
+    expect(fields.join(' ')).not.toMatch(/full-name|city/);
+    expect(nodesOf(checks, 'button-name')).toHaveLength(1);
+  });
+
+  it('suggests a label for each field and a name for each icon button (US-11)', () => {
+    expect(nodesOf(checks, 'label').map((node) => node.suggestion.text)).toEqual(['Phone', 'First name']);
+    expect(nodesOf(checks, 'button-name')[0].suggestion).toMatchObject({ text: 'Search', kind: 'name' });
+    expect(nodesOf(about, 'label')[0].suggestion.code).toBe(
+      '<label for="email">Email address</label>\n<input id="email" type="email" name="email">',
+    );
+    expect(nodesOf(contact, 'button-name')[0].suggestion.text).toBe('Open menu');
+  });
+});
+
 describe('single page failures (US-06 AC-2)', () => {
   it('times out a page that never responds', async () => {
     const result = await scanner(1500)(`${fixtures.siteOrigin}/slow.html`);

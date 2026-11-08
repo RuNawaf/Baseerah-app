@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { AppError } from '../errors/AppError.js';
 import { USER_AGENT } from '../validation/network.js';
+import { categoryOf, needsContext, nodeDetails } from './findings.js';
 
 const MAX_NODES_PER_RULE = 10;
 const SETTLE_TIMEOUT_MS = 3000;
@@ -30,21 +31,105 @@ export function mapNavigationError(err, timeoutMs) {
   return new AppError('NAVIGATION_FAILED');
 }
 
-function summarizeViolations(violations) {
+export function summarizeViolations(violations, contexts = new Map()) {
   return violations.map((violation) => ({
     id: violation.id,
     impact: violation.impact ?? 'unknown',
     help: violation.help,
     description: violation.description,
     helpUrl: violation.helpUrl,
+    category: categoryOf(violation.id),
     wcag: violation.tags.filter((tag) => /^wcag\d/.test(tag)),
     nodeCount: violation.nodes.length,
-    nodes: violation.nodes.slice(0, MAX_NODES_PER_RULE).map((node) => ({
-      target: node.target.map(String).join(' '),
-      html: truncate(node.html, 300),
-      failureSummary: truncate(node.failureSummary, 500),
-    })),
+    nodes: violation.nodes.slice(0, MAX_NODES_PER_RULE).map((node) => {
+      const target = node.target.map(String).join(' ');
+      const html = truncate(node.html, 300);
+      return {
+        target,
+        html,
+        failureSummary: truncate(node.failureSummary, 500),
+        ...nodeDetails(violation.id, { ...node, html }, contexts.get(target)),
+      };
+    }),
   }));
+}
+
+/** CSS selectors of the shown elements that need page context for a suggestion (not those inside iframes). */
+function contextTargets(violations) {
+  const targets = new Set();
+  for (const violation of violations) {
+    if (!needsContext(violation.id)) continue;
+    for (const node of violation.nodes.slice(0, MAX_NODES_PER_RULE)) {
+      if (node.target.length === 1 && typeof node.target[0] === 'string') targets.add(node.target[0]);
+    }
+  }
+  return [...targets];
+}
+
+/**
+ * Reads, without changing anything, what the page says about each element: its attributes,
+ * a caption, the link around it, the text next to it and icon hints. Runs inside the browser.
+ */
+function readElementContext(selectors) {
+  const text = (value) => (value ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  const context = {};
+  for (const selector of selectors) {
+    let element;
+    try {
+      element = document.querySelector(selector);
+    } catch {
+      continue;
+    }
+    if (!element) continue;
+
+    const link = element.closest('a[href]');
+    const figure = element.closest('figure');
+    const svgTitle = element.querySelector?.('svg title, title');
+    const icons = [element, ...element.querySelectorAll('svg, i, span, img, use')]
+      .map((node) => [node.getAttribute('class'), node.getAttribute('href'), node.getAttribute('xlink:href'), node.getAttribute('src'), node.id].join(' '))
+      .join(' ');
+
+    // Visible text right before a field ("Email:"), from its parent, without the field's own text.
+    let nearbyText = '';
+    if (/^(input|select|textarea)$/i.test(element.tagName)) {
+      let sibling = element.previousSibling;
+      while (sibling && !nearbyText) {
+        // Stop at another control: its text belongs to it, not to this field.
+        if (sibling.nodeType === 1 && sibling.matches('input, select, textarea, button, :has(input, select, textarea, button)')) break;
+        nearbyText = text(sibling.textContent).slice(0, 60);
+        sibling = sibling.previousSibling;
+      }
+    }
+
+    context[selector] = {
+      tag: element.tagName.toLowerCase(),
+      type: element.getAttribute('type'),
+      role: element.getAttribute('role'),
+      id: element.id || null,
+      name: element.getAttribute('name'),
+      placeholder: element.getAttribute('placeholder'),
+      title: element.getAttribute('title'),
+      autocomplete: element.getAttribute('autocomplete'),
+      className: element.getAttribute('class'),
+      src: element.currentSrc || element.getAttribute('src') || element.getAttribute('data'),
+      caption: figure ? text(figure.querySelector('figcaption')?.textContent) : '',
+      linkHref: link ? link.getAttribute('href') : null,
+      linkText: link ? text(link.innerText) : '',
+      linkLabel: link ? text(link.getAttribute('aria-label') || link.getAttribute('title')) : '',
+      svgTitle: svgTitle ? text(svgTitle.textContent) : '',
+      iconHint: icons.slice(0, 500),
+      nearbyText,
+      pageTitle: document.title,
+    };
+  }
+  return context;
+}
+
+async function collectElementContext(page, violations) {
+  const targets = contextTargets(violations);
+  if (!targets.length) return new Map();
+  const context = await page.evaluate(readElementContext, targets).catch(() => ({}));
+  return new Map(Object.entries(context));
 }
 
 /**
@@ -159,7 +244,8 @@ export async function scanPage({ browser, url, origin, timeoutMs, guardHost }) {
       throw new AppError('ANALYSIS_FAILED', { cause: err });
     }
 
-    result.violations = summarizeViolations(axeResults.violations);
+    const contexts = await collectElementContext(page, axeResults.violations);
+    result.violations = summarizeViolations(axeResults.violations, contexts);
     result.issueCount = result.violations.reduce((sum, violation) => sum + violation.nodeCount, 0);
     result.status = 'succeeded';
   })();

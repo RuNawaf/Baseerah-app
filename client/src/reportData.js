@@ -4,6 +4,29 @@ export const IMPACT_LABEL = { critical: 'Critical', serious: 'Serious', moderate
 
 const IMPACT_RANK = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 
+export const CHECKS = ['altText', 'contrast', 'label'];
+
+/**
+ * The Sprint 2 checks across the scanned pages: affected elements, ready suggestions (elements shown with a
+ * suggested text) and, for contrast, the lowest measured ratio.
+ */
+function summarizeChecks(pages) {
+  const checks = Object.fromEntries(CHECKS.map((check) => [check, { elements: 0, suggestions: 0, lowestRatio: null }]));
+  for (const page of pages) {
+    for (const violation of page.violations) {
+      const check = checks[violation.category];
+      if (!check) continue;
+      check.elements += violation.nodeCount;
+      for (const node of violation.nodes) {
+        if (node.suggestion?.text) check.suggestions += 1;
+        const ratio = node.contrast?.ratio;
+        if (typeof ratio === 'number' && (check.lowestRatio === null || ratio < check.lowestRatio)) check.lowestRatio = ratio;
+      }
+    }
+  }
+  return checks;
+}
+
 function emptyCounts() {
   return { critical: 0, serious: 0, moderate: 0, minor: 0 };
 }
@@ -76,5 +99,6 @@ export function summarizeReport(report) {
     },
     // The one finding: the most severe rule, and how far it reaches.
     topRule: ruleList[0] ?? null,
+    checks: summarizeChecks(scanned),
   };
 }

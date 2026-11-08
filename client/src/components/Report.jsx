@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { displayHost, displayPath, formatDuration, formatTime } from '../format.js';
 import { useI18n } from '../i18n.js';
-import { IMPACTS, summarizeReport } from '../reportData.js';
+import { CHECKS, IMPACTS, summarizeReport } from '../reportData.js';
 import { PageMap, PageMapLegend, PageTile, tileKind } from './PageMap.jsx';
 
 const MAX_RULES = 5;
@@ -70,8 +70,69 @@ function SeverityBreakdown({ byImpact, total }) {
   );
 }
 
+const CHECK_TITLE = { altText: 'checkAltText', contrast: 'checkContrast', label: 'checkLabel' };
+
+/** US-09: the measured colours of one low-contrast element. */
+function ContrastDetails({ contrast }) {
+  const { t } = useI18n();
+  return (
+    <div className="node-extra contrast-detail">
+      <dl className="contrast-colors">
+        <div>
+          <dt>{t('contrastText')}</dt>
+          <dd>
+            <span className="color-chip" style={{ background: contrast.foreground }} aria-hidden="true" />
+            <code dir="ltr">{contrast.foreground}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('contrastBackground')}</dt>
+          <dd>
+            <span className="color-chip" style={{ background: contrast.background }} aria-hidden="true" />
+            <code dir="ltr">{contrast.background}</code>
+          </dd>
+        </div>
+      </dl>
+      <p className="contrast-ratio" data-testid="contrast-ratio">
+        {contrast.ratio !== null && contrast.required !== null
+          ? t('contrastRatio', { ratio: contrast.ratio, required: contrast.required })
+          : t('contrastUnknown')}
+        {contrast.fontSize && ` ${t('contrastFont', { size: contrast.fontSize, weight: contrast.fontWeight ?? '' })}`}
+      </p>
+    </div>
+  );
+}
+
+/** US-08 and US-11: a suggested text and code for one element. The page itself is never changed. */
+function Suggestion({ suggestion, category }) {
+  const { t } = useI18n();
+  const title = category === 'altText' ? t('suggestAlt') : suggestion.kind === 'name' ? t('suggestName') : t('suggestLabel');
+  return (
+    <div className="node-extra suggestion">
+      <p className="suggestion-head">
+        <strong>{title}</strong>{' '}
+        {suggestion.text && (
+          <bdi className="suggestion-text" data-testid="suggestion-text">
+            {suggestion.text}
+          </bdi>
+        )}
+      </p>
+      <p className="suggestion-basis">{suggestion.text ? t(`basis_${suggestion.basis}`) : t('suggestNoText')}</p>
+      {suggestion.code && (
+        <>
+          <p className="suggestion-code-label">{t('suggestCode')}</p>
+          <pre className="node-html suggestion-code" dir="ltr">
+            <code>{suggestion.code}</code>
+          </pre>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Violation({ violation }) {
   const { t, count } = useI18n();
+  const hasSuggestions = violation.nodes.some((node) => node.suggestion);
   return (
     <li className="violation">
       <div className="violation-head">
@@ -91,6 +152,8 @@ function Violation({ violation }) {
             <pre className="node-html">
               <code>{node.html}</code>
             </pre>
+            {node.contrast && <ContrastDetails contrast={node.contrast} />}
+            {node.suggestion && <Suggestion suggestion={node.suggestion} category={violation.category} />}
           </li>
         ))}
       </ul>
@@ -99,11 +162,48 @@ function Violation({ violation }) {
           {t('showing', { shown: violation.nodes.length, total: violation.nodeCount })}
         </p>
       )}
+      {hasSuggestions && <p className="suggestion-note">{t('suggestNote')}</p>}
       <a href={violation.helpUrl} target="_blank" rel="noopener noreferrer">
         {t('howToFix')}
         <span className="visually-hidden"> {t('newTab')}</span>
       </a>
     </li>
+  );
+}
+
+/** US-07, US-09 and US-10 at a glance: how many elements fail each check across the website. */
+function KeyChecks({ checks }) {
+  const { t, count } = useI18n();
+  return (
+    <section className="panel checks" aria-labelledby="checks-title">
+      <header className="panel-head">
+        <h2 id="checks-title">{t('checksTitle')}</h2>
+        <p className="meta">{t('checksHint')}</p>
+      </header>
+      <ul className="check-list">
+        {CHECKS.map((check) => {
+          const { elements, suggestions, lowestRatio } = checks[check];
+          let detail = t('checkNone');
+          if (elements > 0) {
+            detail =
+              check === 'contrast'
+                ? lowestRatio !== null
+                  ? t('checkLowest', { ratio: lowestRatio })
+                  : ''
+                : t('checkSuggestions', { suggestions: count(suggestions, 'suggestion') });
+          }
+          return (
+            <li key={check} className={`check${elements === 0 ? ' is-zero' : ''}`}>
+              <span className="check-name">{t(CHECK_TITLE[check])}</span>
+              <span className="check-figure num" data-testid={`check-${check}`}>
+                {elements}
+              </span>
+              <span className="check-detail">{detail}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -278,6 +378,8 @@ export function Report({ scan, headingRef, onNewScan, onScanAgain }) {
           </dl>
         </section>
       </div>
+
+      <KeyChecks checks={summary.checks} />
 
       <section className="panel pages" aria-labelledby="pages-title">
         <header className="panel-head">

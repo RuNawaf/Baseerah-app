@@ -1949,6 +1949,126 @@ progress::-moz-progress-bar {
   overflow-wrap: anywhere;
 }
 
+/* key checks (images, contrast, labels) */
+
+.checks {
+  margin-top: var(--gap);
+}
+
+.check-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.check {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--raised);
+  border-radius: var(--radius-card);
+}
+
+.check-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.check-figure {
+  font-size: var(--fs-title);
+  line-height: 1.1;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.check-detail {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+
+.check.is-zero .check-figure {
+  color: var(--positive);
+}
+
+/* details under one affected element */
+
+.node-extra {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--teal);
+  border-radius: 10px;
+  background: var(--sheet);
+  font-size: var(--fs-meta);
+}
+
+.contrast-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+
+.contrast-colors > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contrast-colors dt {
+  color: var(--muted);
+}
+
+.contrast-colors dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-chip {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+}
+
+.violation .contrast-ratio,
+.violation .suggestion-basis,
+.violation .suggestion-code-label {
+  margin-top: 4px;
+}
+
+.suggestion-head strong {
+  color: var(--navy);
+}
+
+.suggestion-text {
+  font-weight: 700;
+}
+
+.suggestion-text::before {
+  content: '“';
+}
+
+.suggestion-text::after {
+  content: '”';
+}
+
+.suggestion-basis,
+.suggestion-code-label {
+  color: var(--muted);
+}
+
+.suggestion-code {
+  border-radius: 10px;
+}
+
+.violation .suggestion-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+
 /* ---------- tablet ---------- */
 
 @media (max-width: 68rem) {
@@ -1983,6 +2103,10 @@ progress::-moz-progress-bar {
 /* ---------- phone ---------- */
 
 @media (max-width: 40rem) {
+  .check-list {
+    grid-template-columns: 1fr;
+  }
+
   :root {
     --pad: 16px;
     --fs-title: 1.5rem;

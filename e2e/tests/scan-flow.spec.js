@@ -49,12 +49,27 @@ test('scans the whole fixture website and opens the report @mobile', async ({ pa
 
   await rows.locator('summary').first().click();
   await expect(rows.getByRole('heading', { level: 4 }).first()).toBeVisible();
+
+  // Sprint 2: images, contrast and labels, with suggestions (US-07 to US-11).
+  const checks = page.getByRole('region', { name: 'Key checks' });
+  await expect(checks.getByTestId('check-altText')).not.toHaveText('0');
+  await expect(checks.getByTestId('check-contrast')).not.toHaveText('0');
+  await expect(checks.getByTestId('check-label')).not.toHaveText('0');
+  const homeRow = rows.locator('details').filter({ has: page.locator('.page-path', { hasText: /^\/$/ }) });
+  if (!(await homeRow.evaluate((node) => node.open))) await homeRow.locator('summary').click();
+  await expect(homeRow.getByTestId('suggestion-text')).toHaveText('Fixture Bakery logo');
+  await expect(homeRow.getByTestId('contrast-ratio')).toContainText('Contrast 1.91:1, needs at least 4.5:1.');
+  const aboutRow = rows.locator('details').filter({ has: page.locator('.page-path', { hasText: /^\/about\.html$/ }) });
+  await aboutRow.locator('summary').click();
+  await expect(aboutRow.getByTestId('suggestion-text')).toHaveText('Email address');
   await page.screenshot({ path: `test-results/screens/report-${test.info().project.name}.png`, fullPage: true });
 
   // The report link survives a reload.
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'Accessibility report for 127.0.0.1:4400' })).toBeVisible();
 
+  // Check the report with the element details and suggestions open, too.
+  await page.getByRole('region', { name: 'Page by page' }).locator('summary').first().click();
   await expectNoSeriousAxeIssues(page);
 });
 
